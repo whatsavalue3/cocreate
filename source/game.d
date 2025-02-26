@@ -94,7 +94,7 @@ class Scene
 		{
 			parent.children ~= visual;
 		}
-		visualToObj[curVisualId] = visual;
+		idToVisual[curVisualId] = visual;
 		visual.scene = this;
 		return visual;
 	}
@@ -106,11 +106,11 @@ void Game_Init()
 {
 	//loadLua();
 	mainscene = new Scene();
-	mainscene.CreateObj(null);
+	mainscene.CreateObj(cast(Obj)null);
 }
 
 void Game_Draw(int w, int h)
 {
-	glLoadIdentity();
+	//glLoadIdentity();
 	
 }

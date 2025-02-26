@@ -1,0 +1,10 @@
+{
+	"fileVersion": 1,
+	"versions": {
+		"bindbc-loader": "1.1.5",
+		"bindbc-lua": "0.6.1",
+		"bindbc-opengl": "1.1.1",
+		"erupted": "2.1.98+v1.3.248",
+		"glfw-d": "1.1.1"
+	}
+}

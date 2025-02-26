@@ -10,7 +10,9 @@ import core.stdc.string;
 class Vulkan {
     static VkInstance instance;
     static VkPhysicalDevice physicalDevice;
+    static VkDebugReportCallbackEXT callback;
     static VkDevice device;
+    static VkQueueFamilyProperties[] queueFamilies;
 
     static bool CheckLayers(const(char)*[] targetLayers, VkLayerProperties* instanceLayers, uint instanceLayerCount)
     {
@@ -54,6 +56,20 @@ class Vulkan {
         }
     
         return true;
+    }
+
+    extern(C) @nogc nothrow VkBool32 DebugCallback(VkFlags msgFlags, VkDebugReportObjectTypeEXT objType, ulong srcObject, size_t location, int msgCode, const(char)* pLayerPrefix, const(char)* pMsg, void* pUserData) {
+        const(char)* msgLevel = "U";
+        if(msgFlags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {
+            msgLevel = "E";
+        } else if(msgFlags & VK_DEBUG_REPORT_WARNING_BIT_EXT) {
+            msgLevel = "W";
+        }
+
+        // TODO: is there a way to use writefln with @nogc?
+        printf("[%s %s] [code %d] %s", msgLevel, pLayerPrefix, msgCode, pMsg);
+
+        return false;
     }
 
     static void Initialize() {
@@ -137,8 +153,6 @@ class Vulkan {
 
         loadInstanceLevelFunctions(this.instance);
 
-        VkPhysicalDevice vkPhysicalDevice;
-
         uint physicalDeviceCount;
         assert(!vkEnumeratePhysicalDevices(this.instance, &physicalDeviceCount, null));
 
@@ -147,17 +161,17 @@ class Vulkan {
             assert(!vkEnumeratePhysicalDevices(this.instance, &physicalDeviceCount, physicalDevices));
             
             // TODO: better gpu rating
-            vkPhysicalDevice = physicalDevices[0];
+            this.physicalDevice = physicalDevices[0];
 
             free(physicalDevices);
         }
 
         uint physicalDeviceExtensionCount;
-        assert(!vkEnumerateDeviceExtensionProperties(vkPhysicalDevice, null, &physicalDeviceExtensionCount, null));
+        assert(!vkEnumerateDeviceExtensionProperties(this.physicalDevice, null, &physicalDeviceExtensionCount, null));
 
         if (physicalDeviceExtensionCount > 0) {
             auto physicalDeviceExtensions = cast(VkExtensionProperties*)malloc(VkExtensionProperties.sizeof * physicalDeviceExtensionCount);
-            assert(!vkEnumerateDeviceExtensionProperties(vkPhysicalDevice, null, &physicalDeviceExtensionCount, physicalDeviceExtensions));
+            assert(!vkEnumerateDeviceExtensionProperties(this.physicalDevice, null, &physicalDeviceExtensionCount, physicalDeviceExtensions));
 
             
             const(char)*[1] deviceSwapchainExtensions = [ VK_KHR_SWAPCHAIN_EXTENSION_NAME ];
@@ -166,12 +180,27 @@ class Vulkan {
             }
         } else {
             throw new Exception("device has no extensions");
-        }{
+        }
 
         // TODO: make validation optional
         VkDebugReportCallbackCreateInfoEXT debugCallbackCreateInfo;
         debugCallbackCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
         debugCallbackCreateInfo.pNext = null;
         debugCallbackCreateInfo.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT;
+        debugCallbackCreateInfo.pfnCallback = &DebugCallback;
+        debugCallbackCreateInfo.pUserData = null;
+        assert(!vkCreateDebugReportCallbackEXT(this.instance, &debugCallbackCreateInfo, null, &this.callback));
+
+        uint queueFamiliesCount;
+        vkGetPhysicalDeviceQueueFamilyProperties(this.physicalDevice, &queueFamiliesCount, null);
+        assert(queueFamiliesCount >= 1);
+
+        auto queueFamilyProperties = cast(VkQueueFamilyProperties*)malloc(VkQueueFamilyProperties.sizeof * queueFamiliesCount);
+        vkGetPhysicalDeviceQueueFamilyProperties(this.physicalDevice, &queueFamiliesCount, queueFamilyProperties);
+        for(uint i = 0; i < queueFamiliesCount; i++) {
+            this.queueFamilies ~= queueFamilyProperties[i];
+        }
+
+        free(queueFamilyProperties);
     }
 }
